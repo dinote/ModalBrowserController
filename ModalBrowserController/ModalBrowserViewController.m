@@ -1,10 +1,28 @@
-    //
+//
 //  ModalBrowserViewController.m
-//  Eventful
 //
 //  Created by Vatroslav Dino Matijas on 8/19/11.
-//  Copyright 2011 __MyCompanyName__. All rights reserved.
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+
 
 #import "ModalBrowserViewController.h"
 
@@ -12,7 +30,6 @@
 
 - (UIImage *)backArrowImage;
 - (UIImage *)forwardArrowImage;
-- (CGContextRef)createContext;
 - (void)refreshNavigationButtons;
 -(void)back;
 -(void)forward;
@@ -24,62 +41,144 @@
 
 @implementation ModalBrowserViewController
 
-// The designated initializer.  Override if you create the controller programmatically and want to perform customization that is not appropriate for viewDidLoad.
-/*
-- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
-    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
-    if (self) {
-        // Custom initialization.
-    }
-    return self;
-}
-*/
-
--(id)initWithURL:(NSURL*)theUrl callingController:(UIViewController*) controller {
-	return [self initWithURLRequest:[NSURLRequest requestWithURL: theUrl] callingController:controller];
+-(id)initWithURL:(NSURL*)theUrl {
+	return [self initWithURLRequest:[NSURLRequest requestWithURL: theUrl]];
 }
 
--(id)initWithURLRequest:(NSURLRequest*)theRequest callingController:(UIViewController*) controller {
+-(id)initWithURLRequest:(NSURLRequest*)theRequest {
 	self = [super init];
 	if (self) {
-		request = [theRequest retain];
-		callingController = controller;
+		webView = [[UIWebView alloc] init];
+		webView.delegate = self;
+		[webView loadRequest:theRequest];	
 	}
 	return self;
 }
 
 - (void)dealloc {
-	[request release];
 	[activityIndicator release];
 	[webView release];
 	[backButtonItem release];
 	[forwardButtonItem release];
-	[spinnerItem release];
 	
     [super dealloc];
 }
 
 
-- (CGContextRef)createContext
-{
-	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	CGContextRef context = CGBitmapContextCreate(nil,27,27,8,0,
-												 colorSpace,kCGImageAlphaPremultipliedLast);
-	CFRelease(colorSpace);
-	return context;
+
+- (void)loadView {
+	[super loadView];
+	
+	UIToolbar* toolbar = [[[UIToolbar alloc] init] autorelease];
+    toolbar.barStyle = UIBarStyleBlack;	
+    [toolbar sizeToFit];
+	
+    CGFloat toolbarHeight = [toolbar frame].size.height;
+	
+    CGRect rootViewBounds = self.view.bounds;
+	CGFloat rootViewHeight = rootViewBounds.size.height;
+	CGFloat rootViewWidth = rootViewBounds.size.width;
+    CGRect toolbarFrame = CGRectMake(0, rootViewHeight - toolbarHeight, rootViewWidth, toolbarHeight);
+	
+    [toolbar setFrame:toolbarFrame];
+	
+	CGRect webViewFrame = CGRectMake(0, 0, rootViewWidth, rootViewHeight - toolbarHeight);
+	
+	
+	webView.frame = webViewFrame;
+	webView.scalesPageToFit = YES;
+	
+	webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	[self.view addSubview: webView];
+	
+	activityIndicator = [[UIActivityIndicatorView alloc] initWithFrame:CGRectZero];
+	[activityIndicator sizeToFit];
+	
+	
+	UIBarButtonItem* spinnerItem = [[[UIBarButtonItem alloc] initWithCustomView:activityIndicator] autorelease];
+	
+	backButtonItem = [[UIBarButtonItem alloc] initWithImage:[self backArrowImage]
+													  style:UIBarButtonItemStylePlain 
+													 target:self 
+													 action:@selector(back)];
+	backButtonItem.enabled = NO;
+	
+	forwardButtonItem = [[UIBarButtonItem alloc] initWithImage:[self forwardArrowImage]
+														 style:UIBarButtonItemStylePlain 
+														target:self 
+														action:@selector(forward)];
+	forwardButtonItem.enabled = NO;
+	
+	
+	NSArray* toolbarItems = [NSArray arrayWithObjects:
+							 backButtonItem,
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
+																			target:nil
+																			action:nil] autorelease],
+							 forwardButtonItem,
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
+																			target:nil
+																			action:nil] autorelease], 
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
+																			target:self
+																			action:@selector(refresh)] autorelease],
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
+																			target:nil
+																			action:nil] autorelease],
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction
+																			target:self
+																			action:@selector(openIn)] autorelease],
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
+																			target:nil
+																			action:nil] autorelease],	
+							 spinnerItem,
+							 [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
+																			target:nil
+																			action:nil] autorelease],		 
+							 
+							 [[[UIBarButtonItem alloc] initWithTitle:@"Done" 
+															   style:UIBarButtonItemStyleDone 
+															  target:self 
+															  action:@selector(done)] autorelease],
+							 nil];
+	
+    [toolbar setItems: toolbarItems animated: NO];
+	toolbar.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth;
+	[self.view addSubview:toolbar];
+	
 }
 
 
+- (void)viewDidUnload {
+    [super viewDidUnload];
+	
+	[activityIndicator release], activityIndicator = nil;
+	[backButtonItem release], backButtonItem = nil;
+	[forwardButtonItem release], forwardButtonItem = nil;	
+}
+
+
+- (void)refreshNavigationButtons {
+	backButtonItem.enabled = webView.canGoBack;
+	forwardButtonItem.enabled = webView.canGoForward;
+}
+
+#pragma mark -
+#pragma mark Private
+
 - (UIImage *)backArrowImage
 {
-	CGContextRef context = [self createContext];
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context = CGBitmapContextCreate(nil,32,32,8,0,colorSpace,kCGImageAlphaPremultipliedLast);
+	CFRelease(colorSpace);
+	
 	CGColorRef fillColor = [[UIColor blackColor] CGColor];
 	CGContextSetFillColor(context, CGColorGetComponents(fillColor));
 	
 	CGContextBeginPath(context);
-	CGContextMoveToPoint(context, 8.0f, 13.0f);
-	CGContextAddLineToPoint(context, 24.0f, 4.0f);
-	CGContextAddLineToPoint(context, 24.0f, 22.0f);
+	CGContextMoveToPoint(context, 4.0f, 14.0f);	
+	CGContextAddLineToPoint(context, 26.0f, 5.0f);
+	CGContextAddLineToPoint(context, 26.0f, 23.0f);	
 	CGContextClosePath(context);
 	CGContextFillPath(context);
 	
@@ -93,14 +192,18 @@
 
 - (UIImage *)forwardArrowImage
 {
-	CGContextRef context = [self createContext];
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context = CGBitmapContextCreate(nil,32,32,8,0,colorSpace,kCGImageAlphaPremultipliedLast);
+	CFRelease(colorSpace);
+	
 	CGColorRef fillColor = [[UIColor blackColor] CGColor];
 	CGContextSetFillColor(context, CGColorGetComponents(fillColor));
 	
 	CGContextBeginPath(context);
-	CGContextMoveToPoint(context, 24.0f, 13.0f);
-	CGContextAddLineToPoint(context, 8.0f, 4.0f);
-	CGContextAddLineToPoint(context, 8.0f, 22.0f);
+	CGContextMoveToPoint(context, 28.0f, 14.0f);
+	CGContextAddLineToPoint(context, 6.0f, 5.0f);
+	CGContextAddLineToPoint(context, 6.0f, 23.0f);	
+	
 	CGContextClosePath(context);
 	CGContextFillPath(context);
 	
@@ -113,141 +216,6 @@
 }
 
 
-// Implement loadView to create a view hierarchy programmatically, without using a nib.
-- (void)loadView {
-	[super loadView];
-	
-	UIToolbar* toolbar = [[UIToolbar alloc] init];
-    toolbar.barStyle = UIBarStyleBlack;
-	
-    //Set the toolbar to fit the width of the app.
-    [toolbar sizeToFit];
-	
-    //Caclulate the height of the toolbar
-    CGFloat toolbarHeight = [toolbar frame].size.height;
-	
-    //Get the bounds of the parent view
-    CGRect rootViewBounds = self.view.bounds;
-	
-    //Get the height of the parent view.
-    CGFloat rootViewHeight = CGRectGetHeight(rootViewBounds);
-	
-    //Get the width of the parent view,
-    CGFloat rootViewWidth = CGRectGetWidth(rootViewBounds);
-	
-    //Create a rectangle for the toolbar
-    CGRect rectArea = CGRectMake(0, rootViewHeight - toolbarHeight, rootViewWidth, toolbarHeight);
-	
-    //Reposition and resize the receiver
-    [toolbar setFrame:rectArea];
-	
-	CGRect webViewFrame = CGRectMake(0, 0, self.view.frame.size.width, rootViewHeight - toolbarHeight);
-	
-	webView = [[UIWebView alloc] initWithFrame: webViewFrame];
-	webView.delegate = self;
-	
-	
-	[self.view addSubview: webView];
-	
-	activityIndicator = [[UIActivityIndicatorView alloc] initWithFrame:CGRectZero];
-	[activityIndicator sizeToFit];
-	
-
-	spinnerItem = [[[UIBarButtonItem alloc] initWithCustomView:activityIndicator] retain];
-		
-	backButtonItem =
-	[[[UIBarButtonItem alloc] initWithImage:[self backArrowImage]
-									 style:UIBarButtonItemStylePlain 
-									target:self 
-									action:@selector(back)] retain];
-	
-	forwardButtonItem =
-	[[[UIBarButtonItem alloc] initWithImage:[self forwardArrowImage]
-									 style:UIBarButtonItemStylePlain 
-									target:self 
-									action:@selector(forward)] retain];
-	
-	backButtonItem.enabled = NO;
-	forwardButtonItem.enabled = NO;
-	
-		
-	NSArray* toolbarItems = [NSArray arrayWithObjects:
-							 backButtonItem,
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
-																		   target:nil
-																		   action:nil],
-							forwardButtonItem,
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
-																		   target:nil
-																		   action:nil],							 
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
-																		   target:self
-																		   action:@selector(refresh)],
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
-																		   target:nil
-																		   action:nil],							 
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction
-																		   target:self
-																		   action:@selector(openIn)],
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
-																		   target:nil
-																		   action:nil],	
-																			spinnerItem,
-							 [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace 
-																		   target:nil
-																		   action:nil],							 							 
-							 
-							 [[UIBarButtonItem alloc] initWithTitle:@"Done" 
-															  style:UIBarButtonItemStyleDone 
-															 target:self 
-															 action:@selector(done)],
-							 nil];
-    [toolbarItems makeObjectsPerformSelector:@selector(release)];
-    [toolbar setItems: toolbarItems animated: NO];
-	[self.view addSubview:toolbar];
-	[toolbar release];
-	
-	
-	
-	//Load the request in the UIWebView.
-	[webView loadRequest:request];
-	
-}
-
-
-/*
-// Implement viewDidLoad to do additional setup after loading the view, typically from a nib.
-- (void)viewDidLoad {
-    [super viewDidLoad];
-}
-*/
-
-/*
-// Override to allow orientations other than the default portrait orientation.
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
-    // Return YES for supported orientations.
-    return (interfaceOrientation == UIInterfaceOrientationPortrait);
-}
-*/
-
-- (void)didReceiveMemoryWarning {
-    // Releases the view if it doesn't have a superview.
-    [super didReceiveMemoryWarning];
-    
-    // Release any cached data, images, etc. that aren't in use.
-}
-
-- (void)viewDidUnload {
-    [super viewDidUnload];
-    // Release any retained subviews of the main view.
-    // e.g. self.myOutlet = nil;
-}
-
-
-- (void)refreshNavigationButtons {
-	backButtonItem.enabled = webView.canGoBack;
-	forwardButtonItem.enabled = webView.canGoForward;
-}
 
 -(void)back {
 	[webView goBack];
@@ -262,7 +230,7 @@
 }
 
 -(void)done {
-	[callingController dismissModalViewControllerAnimated:YES];
+	[self dismissModalViewControllerAnimated:YES];
 }
 
 -(void)openIn {
