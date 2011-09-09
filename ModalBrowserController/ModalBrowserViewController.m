@@ -70,17 +70,17 @@
 	[super loadView];
 	
 	UIToolbar* toolbar = [[[UIToolbar alloc] init] autorelease];
-    toolbar.barStyle = UIBarStyleBlack;	
-    [toolbar sizeToFit];
+	toolbar.barStyle = UIBarStyleBlack;	
+	[toolbar sizeToFit];
 	
-    CGFloat toolbarHeight = [toolbar frame].size.height;
+	CGFloat toolbarHeight = [toolbar frame].size.height;
 	
-    CGRect rootViewBounds = self.view.bounds;
+	CGRect rootViewBounds = self.view.bounds;
 	CGFloat rootViewHeight = rootViewBounds.size.height;
 	CGFloat rootViewWidth = rootViewBounds.size.width;
-    CGRect toolbarFrame = CGRectMake(0, rootViewHeight - toolbarHeight, rootViewWidth, toolbarHeight);
+	CGRect toolbarFrame = CGRectMake(0, rootViewHeight - toolbarHeight, rootViewWidth, toolbarHeight);
 	
-    [toolbar setFrame:toolbarFrame];
+	[toolbar setFrame:toolbarFrame];
 	
 	CGRect webViewFrame = CGRectMake(0, 0, rootViewWidth, rootViewHeight - toolbarHeight);
 	
